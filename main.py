@@ -10,22 +10,21 @@ from aioconsole import ainput
 import pandas as pd
 import openpyxl
 
-#///конфиг///
-data_acquisition_interval=180 #интервал получения данных
-name_bd='data_weather'
-name_table='data_weather'
-export_path='export'
-coordinates={'lat':55.698538,
-            'lon':37.359576}
+# ///конфиг///
+data_acquisition_interval = 10  # интервал получения данных в секундах
+name_bd = 'data_weather'
+name_table = 'data_weather'
+export_path = 'export'
+coordinates = {'lat': 55.698538,
+               'lon': 37.359576}
 
-
-#создать папку экспорта еcли ёё нет
+# создать папку экспорта еcли её нет
 if not os.path.exists(export_path):
     os.makedirs(export_path)
 
 # Создаем базу данных и ORM модель для хранения данных о погоде
 Base = declarative_base()
-dist_bmo={
+dist_bmo = {
     '51': 'Морось: легкая',
     '53': 'Морось: умеренная',
     '55': 'Морось: интенсивная',
@@ -48,7 +47,8 @@ dist_bmo={
     '95': 'Гроза: слабая',
     '96': 'Гроза с небольшим градом',
     '99': 'Гроза с сильным градом'
-} #коды погоды и названия
+}  # коды погоды и названия
+
 
 # создать модель для базы данных
 class WeatherData(Base):
@@ -59,7 +59,7 @@ class WeatherData(Base):
     temperature = Column(Float)
     wind_speed = Column(Float)
     wind_direction = Column(String)
-    pressure = Column(Float )
+    pressure = Column(Float)
     precipitation_type = Column(String)
     precipitation_amount = Column(Float)
 
@@ -71,9 +71,8 @@ engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
-
 # Функция для запроса данных о погоде через API Open-Meteo
-async def fetch_weather_data(session,latitude,longitude):
+async def fetch_weather_data(session, latitude, longitude):
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": latitude,
@@ -101,29 +100,29 @@ def wind_direction(degrees):
     index = round(degrees / 22.5) % 16
     return directions[index]
 
+
 # Функция для записи данных в базу данных
 async def save_weather_data(weather_data):
     async with async_session() as session:
         async with session.begin():
-
             new_data = WeatherData(
                 timestamp=weather_data['time'].replace('T', ' '),
                 temperature=weather_data["temperature_2m"],
                 wind_speed=weather_data["wind_speed_10m"],
                 wind_direction=wind_direction(weather_data["wind_direction_10m"]),
-                pressure=round(weather_data["pressure_msl"]/1.3332,2),
+                pressure=round(weather_data["pressure_msl"] / 1.3332, 2),
                 precipitation_type=dist_bmo.get(str(weather_data['weather_code']), "Осадков нет"),
-                precipitation_amount= weather_data["precipitation"]
+                precipitation_amount=weather_data["precipitation"]
             )
             session.add(new_data)
 
-#функция постояного получения и сохранения данных
-async def collect_weather_data(interval:int=180):
+
+# функция постояного получения и сохранения данных
+async def collect_weather_data(interval: int = 180):
     async with aiohttp.ClientSession() as session:
 
-
         while True:
-            weather_data = await fetch_weather_data(session,latitude=coordinates['lat'],longitude=coordinates['lon'])
+            weather_data = await fetch_weather_data(session, latitude=coordinates['lat'], longitude=coordinates['lon'])
             if weather_data:
                 await save_weather_data(weather_data)
                 # print("Данные о погоде сохранены.")
@@ -133,17 +132,17 @@ async def collect_weather_data(interval:int=180):
 
             await asyncio.sleep(interval)
 
-#функция обработки команд
+
+# функция обработки команд
 async def command_handler():
     while True:
         command = await ainput("для экспорта данных введите 'export_xlsx', для выхода введите 'exit' >>> ")
         if command == "export_xlsx":
             await export_to_xlsx()
         elif command == "exit":
-            exit()
+            quit()
         else:
             print("Неизвестная команда. Пожалуйста, используйте 'export_xlsx'.")
-
 
 
 # Функция для экспорта последних 10 записей в XLSX
@@ -159,9 +158,9 @@ async def export_to_xlsx():
                 'Температура (°C)': record.temperature,
                 'Скорость ветра (м/с)': record.wind_speed,
                 'Направление ветра': record.wind_direction,
-                'Давление (мм рт.ст.)': record.pressure,
-                'Тип осадков': record.precipitation_type,
                 'Количество осадков (мм)': record.precipitation_amount,
+                'Тип осадков': record.precipitation_type,
+                'Давление (мм рт.ст.)': record.pressure,
             } for record in records])
 
             # Сохраняем DataFrame в файл XLSX
@@ -191,6 +190,7 @@ async def export_to_xlsx():
             print(f"Данные успешно экспортированы в {excel_filename}.")
             await asyncio.sleep(3)
 
+
 # Главная функция
 async def main():
     # Создаем таблицу, если она еще не создана
@@ -203,6 +203,7 @@ async def main():
 
     # Ждем завершения задач (не завершатся, так как это бесконечные циклы)
     await asyncio.gather(weather_task, command_task)
+
 
 # Запуск асинхронной программы
 if __name__ == "__main__":
