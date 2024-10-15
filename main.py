@@ -140,7 +140,7 @@ async def command_handler():
         if command == "export_xlsx":
             await export_to_xlsx()
         elif command == "exit":
-            quit()
+            raise SystemExit
         else:
             print("Неизвестная команда. Пожалуйста, используйте 'export_xlsx'.")
 
